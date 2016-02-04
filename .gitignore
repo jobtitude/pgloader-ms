@@ -1,2 +1,5 @@
 .vendor/*
+.bundle/*
 .DS_Store
+tmp/*
+logs/*

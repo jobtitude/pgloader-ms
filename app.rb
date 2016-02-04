@@ -28,7 +28,7 @@ class App
     fields = request["fields"] # id,product_type,description
 
     # Env Vars
-    db_connect = "#{ENV['PGL_POSTGRES_SERVER']}#{company}.#{table}"
+    db_connect = "#{ENV['PGL_POSTGRES_SERVER']}?sslmode=require&tablename=#{company}.#{table}"
     filename = "#{company}.#{table}.#{Time.now.strftime("%Y%m%d%M%S")}.load"
 
     file_csv = `curl -o ./tmp/#{filename}.csv "#{url}"`
@@ -68,8 +68,11 @@ class App
 
       response = if ret.include? "Total import time"
                    ret = ret.split("Total import time")
+			p ret
                    ret = ret[1].gsub(/\s+/, ' ').split(" ")
-                   JSON.parse(:read => ret[0], :imported => ret[1], :errors => ret[2])
+p ret
+puts ret
+                   JSON.generate(:read => ret[0], :imported => ret[1], :errors => ret[2])
                  end
 
       @redis_client.set(request['id'], response)
