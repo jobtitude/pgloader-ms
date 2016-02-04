@@ -7,7 +7,6 @@ class App
 
   def run
     while true do
-      p ENV['PGL_REDIS_SERVER']
       puts "waiting..."
 
       channel, request = @redis_client.brpop('sync_files')
@@ -68,10 +67,7 @@ class App
 
       response = if ret.include? "Total import time"
                    ret = ret.split("Total import time")
-			p ret
                    ret = ret[1].gsub(/\s+/, ' ').split(" ")
-p ret
-puts ret
                    JSON.generate(:read => ret[0], :imported => ret[1], :errors => ret[2])
                  end
 
