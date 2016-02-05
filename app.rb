@@ -1,5 +1,8 @@
 require 'redis'
 require 'json'
+require 'open-uri'
+require './load_generator.rb'
+
 class App
   def initialize
     @redis_client = Redis.connect(url: ENV['PGL_REDIS_SERVER'])
@@ -19,68 +22,58 @@ class App
   end
 
   def process(request)
+    @request = request
     puts "processing #{request["table"]} company: #{request["company"]}"
-    # Params
-    table = request["table"] #activities
-    company = request["company"] # canada
-    url = request["url"] # http://amazon....
-    fields = request["fields"] # id,product_type,description
+    @filename = "#{request["company"]}.#{request["table"]}.#{Time.now.strftime("%Y%m%d%M%S")}.load"
 
-    # Env Vars
-    db_connect = "#{ENV['PGL_POSTGRES_SERVER']}?sslmode=require&tablename=#{company}.#{table}"
-    filename = "#{company}.#{table}.#{Time.now.strftime("%Y%m%d%M%S")}.load"
+    download_file
+    generate_load_file
 
-    file_csv = `curl -o ./tmp/#{filename}.csv "#{url}"`
+    ret = `pgloader #{ENV['PGL_PATH'] + "/" + @filename}`
 
-    # Creating load file
-    contents = "LOAD CSV\n"+
-      "FROM './tmp/#{filename}.csv'\n"+
-      "HAVING FIELDS\n"+
-      "(\n"+
-      "#{fields}\n"+
-      ")\n"+
-      "INTO #{db_connect}\n"+
-      "TARGET COLUMNS\n"+
-      "(\n"+
-      "#{fields}\n"+
-      ")\n"+
-      "WITH fields terminated by ';',\n"+
-      "skip header = 1\n"+
-      ";"
-
-    # Writing load file
-    out_file = File.new(ENV['PGL_PATH']+filename, "w")
-    out_file.puts(contents)
-    out_file.close
-
-    # Calling pgloader file.load
-    ret = `pgloader #{ENV['PGL_PATH']+filename}`
-
-    remove_file = `rm tmp/#{filename}.csv`
-
-    # Managing response
     if $?.success?
-      # Write success log file
-      out_file = File.new(ENV['PGL_PATH'] + 'logs/' + filename + ".log", "w")
-      out_file.puts(ret)
-      out_file.close
-
-      response = if ret.include? "Total import time"
-                   ret = ret.split("Total import time")
-                   ret = ret[1].gsub(/\s+/, ' ').split(" ")
-                   JSON.generate(:read => ret[0], :imported => ret[1], :errors => ret[2])
-                 end
-
+      generate_log_file(ret)
+      response = get_statistics(ret)
       @redis_client.set(request['id'], response)
-
     else
-      # Write error log file
-      out_file = File.new(ENV['PGL_PATH'] + filename + ".error", "w")
-      out_file.puts(ret)
-      out_file.close
-
-      @redis_client.rpush(request['id'], false)
+      generate_log_file(ret, error: true)
+      @redis_client.set(request['id'], false)
     end
 
+    clear_files
   end
+
+  private
+
+  def generate_load_file
+    LoadGenerator.generate(@filename, @request)
+  end
+
+  def download_file
+    IO.copy_stream(open(@request['url']), "./tmp/#{@filename}.csv")
+  end
+
+  def clear_files
+    File.delete("tmp/#{@filename}.csv")
+    File.delete(@filename)
+  end
+
+  def generate_log_file(content, error: false)
+    file_name = ENV['PGL_PATH'] + 'logs/' + @filename
+
+    if error
+      file_name += '.error'
+    end
+
+    File.write(file_name + ".log", content)
+  end
+
+  def get_statistics(ret)
+    if ret.include? "Total import time"
+      ret = ret.split("Total import time")
+      ret = ret[1].gsub(/\s+/, ' ').split(" ")
+      JSON.generate(:read => ret[0], :imported => ret[1], :errors => ret[2])
+    end
+  end
+
 end
