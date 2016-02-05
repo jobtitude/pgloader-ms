@@ -21,6 +21,6 @@ class LoadGenerator
       "skip header = 1\n"+
       ";"
 
-    File.write(ENV['PGL_PATH'] + filename + '.load', contents)
+    File.write(ENV['PGL_PATH'] + filename, contents)
   end
 end

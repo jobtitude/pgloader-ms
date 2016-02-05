@@ -40,7 +40,7 @@ RSpec.describe LoadGenerator, "#generate" do
         "WITH fields terminated by ';',\n"+
         "skip header = 1\n"+
         ";"
-      expect(File).to have_received(:write).with("PG_PATH/filename.load", expect_content)
+      expect(File).to have_received(:write).with("PG_PATH/filename", expect_content)
     end
   end
 end
