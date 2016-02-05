@@ -80,6 +80,14 @@ RSpec.describe App do
       expect(File).to have_received(:delete).with(/tmp\/company_slug.activities(.*).load.csv/)
     end
 
+    it "writes logs" do
+      allow(app).to receive(:`).and_return("hello there")
+      app.process(request)
+
+      expect(File).to have_received(:write)
+        .with(/pgloader_pathlogs\/80_company_slug.activities.(.*).load.log/, "hello there")
+    end
+
     context "when the execution pgloeader went wrong" do
       before do
         allow($CHILD_STATUS).to receive(:success?).and_return(false)
@@ -87,7 +95,15 @@ RSpec.describe App do
       end
 
       it "sets the statatistic of redis to false" do
-        expect(redis).to have_received(:set).with("80", false)
+        expect(redis).to have_received(:set).with("80", { "status" => "error" }.to_json)
+      end
+
+      it "writes logs" do
+        allow(app).to receive(:`).and_return("hello there")
+        app.process(request)
+
+        expect(File).to have_received(:write)
+          .with(/pgloader_pathlogs\/80_company_slug.activities.(.*).load.error.log/, "hello there")
       end
     end
 

@@ -37,7 +37,7 @@ class App
       @redis_client.set(request['id'], response)
     else
       generate_log_file(ret, error: true)
-      @redis_client.set(request['id'], false)
+      @redis_client.set(request['id'], { "status" => "error" }.to_json)
     end
 
     clear_files
@@ -59,7 +59,7 @@ class App
   end
 
   def generate_log_file(content, error: false)
-    file_name = ENV['PGL_PATH'] + 'logs/' + @filename
+    file_name = "#{ENV['PGL_PATH']}logs/#{@request["id"]}_#{@filename}"
 
     if error
       file_name += '.error'
