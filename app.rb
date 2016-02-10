@@ -2,6 +2,7 @@ require 'redis'
 require 'json'
 require 'open-uri'
 require './load_generator.rb'
+require 'aws-sdk'
 
 class App
   def initialize
@@ -50,7 +51,13 @@ class App
   end
 
   def download_file
-    IO.copy_stream(open(@request['url']), "./tmp/#{@filename}.csv")
+    IO.copy_stream(open(secure_url), "./tmp/#{@filename}.csv")
+  end
+
+  def secure_url
+    client = Aws::S3::Client.new
+    bucket = client.buckets['loyalguru-imports']
+    bucket.objects[@request['file']].url_for(:read, :expires => 120).to_s
   end
 
   def clear_files

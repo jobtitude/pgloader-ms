@@ -25,6 +25,12 @@ RSpec.describe App do
       allow(redis).to receive(:rpush)
       allow(Redis).to receive(:connect).and_return(redis)
 
+      objects = double("objects")
+      allow(objects).to receive_message_chain("objects.[].url_for").and_return("secure_url")
+      s3 = double("s3")
+      allow(s3).to receive_message_chain("buckets.[]").and_return(objects)
+      allow(Aws::S3::Client).to receive(:new).and_return(s3)
+
       ENV['PGL_PATH'] = 'pgloader_path'
     end
 
@@ -49,6 +55,7 @@ RSpec.describe App do
     it "downloads the csv file" do
       app.process(request)
 
+      expect(app).to have_received(:open).with("secure_url")
       expect(IO).to have_received(:copy_stream).with(
         "content_url",
         /company_slug.activities(.*).load.csv/,
