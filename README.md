@@ -1,5 +1,7 @@
 # pgloader-ms
 
+[![Circle CI](https://circleci.com/gh/jobtitude/pgloader-ms.svg?style=svg)](https://circleci.com/gh/jobtitude/pgloader-ms)
+
 ### Env variables
 ```
 PGL_REDIS_SERVER
