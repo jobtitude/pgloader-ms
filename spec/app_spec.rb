@@ -1,3 +1,4 @@
+require 'timecop'
 require './app.rb'
 
 RSpec.describe App do
@@ -91,10 +92,13 @@ RSpec.describe App do
       expect_output = "Total import time
       1234 123 123"
       allow(app).to receive(:`).and_return(expect_output)
-      app.process(request)
 
-      expect(s3).to have_received(:put_file)
-        .with(/20160211\/success\/80_company_slug.activities.(.*).load.log/, expect_output)
+      Timecop.freeze('2016-02-11') do
+        app.process(request)
+
+        expect(s3).to have_received(:put_file)
+          .with(/20160211\/success\/80_company_slug.activities.(.*).load.log/, expect_output)
+      end
     end
 
     context "when the execution pgloeader went wrong" do
@@ -110,10 +114,12 @@ RSpec.describe App do
 
       it "writes logs" do
         allow(app).to receive(:`).and_return("hello there")
-        app.process(request)
+        Timecop.freeze('2016-02-11') do
+          app.process(request)
 
-      expect(s3).to have_received(:put_file)
-        .with(/20160211\/error\/80_company_slug.activities.(.*).load.log/, "hello there")
+          expect(s3).to have_received(:put_file)
+            .with(/20160211\/error\/80_company_slug.activities.(.*).load.log/, "hello there")
+        end
       end
     end
 

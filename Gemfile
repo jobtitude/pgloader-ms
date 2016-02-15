@@ -5,4 +5,5 @@ gem 'aws-sdk', '~> 2'
 
 group :test, :development do
   gem 'rspec', '~>3.4'
+  gem 'timecop'
 end
