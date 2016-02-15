@@ -14,6 +14,7 @@ RSpec.describe App do
     }
 
     let(:redis) { double("redis") }
+    let(:s3){ instance_double(AmazonClient) }
 
     before do
       allow(LoadGenerator).to receive(:generate).and_return(true)
@@ -24,6 +25,10 @@ RSpec.describe App do
       allow(redis).to receive(:set)
       allow(redis).to receive(:rpush)
       allow(Redis).to receive(:connect).and_return(redis)
+
+      allow(s3).to receive(:secure_url).and_return("secure_url")
+      allow(s3).to receive(:put_file).and_return("log_filename")
+      allow(AmazonClient).to receive(:new).and_return(s3)
 
       ENV['PGL_PATH'] = 'pgloader_path'
     end
@@ -49,6 +54,7 @@ RSpec.describe App do
     it "downloads the csv file" do
       app.process(request)
 
+      expect(app).to have_received(:open).with("secure_url")
       expect(IO).to have_received(:copy_stream).with(
         "content_url",
         /company_slug.activities(.*).load.csv/,
@@ -69,7 +75,8 @@ RSpec.describe App do
       expect(redis).to have_received(:set).with("80", {
         "read" =>  "1234",
         "imported" => "456",
-        "errors" => "678"
+        "errors" => "678",
+        "log" => "#{Time.now.strftime("%Y%m%d")}/success/80_company_slug.activities.#{Time.now.strftime("%Y%m%d%M%S")}.load.log"
       }.to_json)
     end
 
@@ -81,11 +88,13 @@ RSpec.describe App do
     end
 
     it "writes logs" do
-      allow(app).to receive(:`).and_return("hello there")
+      expect_output = "Total import time
+      1234 123 123"
+      allow(app).to receive(:`).and_return(expect_output)
       app.process(request)
 
-      expect(File).to have_received(:write)
-        .with(/pgloader_pathlogs\/80_company_slug.activities.(.*).load.log/, "hello there")
+      expect(s3).to have_received(:put_file)
+        .with(/20160211\/success\/80_company_slug.activities.(.*).load.log/, expect_output)
     end
 
     context "when the execution pgloeader went wrong" do
@@ -95,15 +104,16 @@ RSpec.describe App do
       end
 
       it "sets the statatistic of redis to false" do
-        expect(redis).to have_received(:set).with("80", { "status" => "error" }.to_json)
+        logfile = "#{Time.now.strftime("%Y%m%d")}/error/80_company_slug.activities.#{Time.now.strftime("%Y%m%d%M%S")}.load.log"
+        expect(redis).to have_received(:set).with("80", { "status" => "error", "log" => logfile }.to_json)
       end
 
       it "writes logs" do
         allow(app).to receive(:`).and_return("hello there")
         app.process(request)
 
-        expect(File).to have_received(:write)
-          .with(/pgloader_pathlogs\/80_company_slug.activities.(.*).load.error.log/, "hello there")
+      expect(s3).to have_received(:put_file)
+        .with(/20160211\/error\/80_company_slug.activities.(.*).load.log/, "hello there")
       end
     end
 

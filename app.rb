@@ -2,6 +2,7 @@ require 'redis'
 require 'json'
 require 'open-uri'
 require './load_generator.rb'
+require './amazon_client'
 
 class App
   def initialize
@@ -32,12 +33,12 @@ class App
     ret = `pgloader #{ENV['PGL_PATH'] + "/" + @filename}`
 
     if $?.success?
-      generate_log_file(ret)
-      response = get_statistics(ret)
-      @redis_client.set(request['id'], response)
+      log_filename = generate_log_file(ret)
+      response = get_statistics(ret).merge({log: log_filename})
+      @redis_client.set(request['id'], response.to_json)
     else
-      generate_log_file(ret, error: true)
-      @redis_client.set(request['id'], { "status" => "error" }.to_json)
+      log_filename = generate_log_file(ret, error: true)
+      @redis_client.set(request['id'], { "status" => "error", log: log_filename }.to_json)
     end
 
     clear_files
@@ -50,7 +51,12 @@ class App
   end
 
   def download_file
-    IO.copy_stream(open(@request['url']), "./tmp/#{@filename}.csv")
+    IO.copy_stream(open(secure_url), "./tmp/#{@filename}.csv")
+  end
+
+  def secure_url
+    amazon_client = AmazonClient.new(ENV['PGL_IMPORT_BUCKET'])
+    amazon_client.secure_url(@request['file'])
   end
 
   def clear_files
@@ -59,20 +65,19 @@ class App
   end
 
   def generate_log_file(content, error: false)
-    file_name = "#{ENV['PGL_PATH']}logs/#{@request["id"]}_#{@filename}"
+    amazon_client = AmazonClient.new(ENV['PGL_LOGS_BUCKET'])
+    subfolder = error ? 'error' : 'success'
+    file_name = "#{Time.now.strftime("%Y%m%d")}/#{subfolder}/#{@request["id"]}_#{@filename}.log"
+    amazon_client.put_file(file_name, content)
 
-    if error
-      file_name += '.error'
-    end
-
-    File.write(file_name + ".log", content)
+    file_name
   end
 
   def get_statistics(ret)
     if ret.include? "Total import time"
       ret = ret.split("Total import time")
       ret = ret[1].gsub(/\s+/, ' ').split(" ")
-      JSON.generate(:read => ret[0], :imported => ret[1], :errors => ret[2])
+      { :read => ret[0], :imported => ret[1], :errors => ret[2] }
     end
   end
 
