@@ -12,6 +12,7 @@ class App
   def run
     while true do
       puts "waiting..."
+puts ENV['PGL_REDIS_SERVER']
 
       channel, request = @redis_client.brpop('sync_files')
 
@@ -30,7 +31,7 @@ class App
     download_file
     generate_load_file
 
-    ret = `pgloader #{ENV['PGL_PATH'] + "/" + @filename}`
+    ret = `pgloader --root-dir "/opt/pgloader-ms/" #{ENV['PGL_PATH'] + "/" + @filename}`
 
     if $?.success?
       log_filename = generate_log_file(ret)
