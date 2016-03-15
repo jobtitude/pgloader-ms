@@ -1,8 +1,10 @@
+require 'remote_syslog_logger'
 require 'redis'
 require 'json'
 require 'open-uri'
 require './load_generator.rb'
 require './amazon_client'
+$logger = RemoteSyslogLogger.new(ENV['PGL_LOGS_URL'], ENV['PGL_LOGS_PORT'])
 
 class App
   def initialize
@@ -11,21 +13,22 @@ class App
 
   def run
     while true do
-      puts "waiting..."
-puts ENV['PGL_REDIS_SERVER']
+      $logger.info "waiting..."
 
-      channel, request = @redis_client.brpop('sync_files')
+      _, request = @redis_client.brpop('sync_files')
 
       request_json = JSON.parse(request)
 
-      puts "processing #{request_json["id"]}"
+      $logger.info "processing #{request_json["id"]}"
+
       process(request_json)
     end
   end
 
   def process(request)
     @request = request
-    puts "processing #{request["table"]} company: #{request["company"]}"
+    $logger.info "processing #{request["table"]} company: #{request["company"]}"
+
     @filename = "#{request["company"]}.#{request["table"]}.#{Time.now.strftime("%Y%m%d%M%S")}.load"
 
     download_file
