@@ -2,9 +2,15 @@ class LoadGenerator
   def self.generate(filename, request)
     table = request["table"]
     company = request["company"]
-    url = request["url"]
     fields = request["fields"]
-    db_connect = "#{ENV['PGL_POSTGRES_SERVER']}?sslmode=require&tablename=#{company}.#{table}"
+
+    postgresql = if request["env"] == 'staging'
+                   ENV['PGL_POSTGRES_SERVER_STAGING']
+                 else
+                   ENV['PGL_POSTGRES_SERVER']
+                 end
+
+    db_connect = "#{postgresql}?sslmode=require&tablename=#{company}.#{table}"
 
     contents = "LOAD CSV\n"+
       "FROM './tmp/#{filename}.csv'\n"+
