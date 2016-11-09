@@ -3,6 +3,7 @@ require 'redis'
 require 'json'
 require 'open-uri'
 require './load_generator.rb'
+require 'csv'
 require './amazon_client'
 $logger = RemoteSyslogLogger.new(ENV['PGL_LOGS_URL'], ENV['PGL_LOGS_PORT'])
 
@@ -32,6 +33,7 @@ class App
     @filename = "#{request["company"]}.#{request["table"]}.#{Time.now.strftime("%Y%m%d%M%S")}.load"
 
     download_file
+    prepare_file
     generate_load_file
 
     ret = `pgloader --root-dir "/opt/pgloader-ms/" #{ENV['PGL_PATH'] + "/" + @filename}`
@@ -56,6 +58,29 @@ class App
 
   def download_file
     IO.copy_stream(open(secure_url), "./tmp/#{@filename}.csv")
+  end
+
+  def prepare_file
+    rows = CSV.read("./tmp/#{@filename}.csv", headers: true, col_sep: ";").collect do |row|
+      hash = row.to_hash
+      # Merge additional data as a hash.
+      hash.merge('synchro_id' => @request["synchro_id"])
+    end
+
+    column_names = rows.first.keys
+    txt = CSV.generate do |csv|
+      csv << column_names
+      rows.each do |row|
+        csv << row.values
+      end
+    end
+
+    CSV.open("./tmp/#{@filename}.csv", "wb", {:col_sep => ';'}) do |csv|
+      csv << column_names
+      rows.each do |row|
+        csv << row.values
+      end
+    end
   end
 
   def secure_url
