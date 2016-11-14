@@ -63,7 +63,7 @@ class App
   def prepare_file
     begin
     $logger.info "Preparing file #{@filename}"
-    rows = CSV.read("./tmp/#{@filename}.csv", headers: true, col_sep: ";", encoding: "ISO-8859-15").collect do |row|
+    rows = CSV.read("./tmp/#{@filename}.csv", headers: true, col_sep: ";", encoding: "UTF-8").collect do |row|
       hash = row.to_hash
       # Merge additional data as a hash.
       hash.merge('synchro_id' => @request["synchro_id"])
