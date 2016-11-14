@@ -61,12 +61,15 @@ class App
   end
 
   def prepare_file
-    rows = CSV.read("./tmp/#{@filename}.csv", headers: true, col_sep: ";").collect do |row|
+    begin
+    $logger.info "Preparing file #{@filename}"
+    rows = CSV.read("./tmp/#{@filename}.csv", headers: true, col_sep: ";", encoding: "ISO-8859-15").collect do |row|
       hash = row.to_hash
       # Merge additional data as a hash.
       hash.merge('synchro_id' => @request["synchro_id"])
     end
 
+    $logger.info "Add column synchro_id"
     column_names = rows.first.keys
     txt = CSV.generate do |csv|
       csv << column_names
@@ -75,11 +78,17 @@ class App
       end
     end
 
+    $logger.info "writting file #{@filename}"
     CSV.open("./tmp/#{@filename}.csv", "wb", {:col_sep => ';'}) do |csv|
       csv << column_names
       rows.each do |row|
         csv << row.values
       end
+    end
+    $logger.info "prepare file done"
+
+    rescue => e
+      $logger.info "error #{e.message}"
     end
   end
 
