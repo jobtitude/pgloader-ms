@@ -3,14 +3,13 @@ class LoadGenerator
     table = request["table"]
     company = request["company"]
     fields = request["fields"]
-
     postgresql = if request["env"] == 'staging'
                    ENV['PGL_POSTGRES_SERVER_STAGING']
                  else
                    ENV['PGL_POSTGRES_SERVER']
                  end
 
-    db_connect = "#{postgresql}?sslmode=require&tablename=#{company}.#{table}"
+    db_connect = "#{postgresql}?tablename=#{company}.#{table}"
 
     contents = "LOAD CSV\n"+
       "FROM './tmp/#{filename}.csv'\n"+

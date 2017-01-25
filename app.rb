@@ -71,6 +71,7 @@ class App
 
     $logger.info "Add column synchro_id"
     column_names = rows.first.keys
+    column_names = column_names.map{|x| x.sub('weight','custom2')}
     txt = CSV.generate do |csv|
       csv << column_names
       rows.each do |row|
@@ -79,10 +80,11 @@ class App
     end
 
     $logger.info "writting file #{@filename}"
+    short_set = Set.new
     CSV.open("./tmp/#{@filename}.csv", "wb", {:col_sep => ';'}) do |csv|
       csv << column_names
       rows.each do |row|
-        csv << row.values
+        csv << row.values if !short_set.add?(row.values).nil?
       end
     end
     $logger.info "prepare file done"
